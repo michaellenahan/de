@@ -2,8 +2,8 @@
 /* change background-color */
 body {
   color:#ffffff;
-  /* background-color:#231f20; */
-  background-color:black;
+  background-color:#231f20;
+  /* background-color:black; */
 }
 /* show active links on dark background */
 li a.active {
