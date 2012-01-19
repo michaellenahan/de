@@ -1,5 +1,4 @@
 <?php
-// $Id: galleryformatter.tpl.php,v 1.4.2.2 2011/01/30 16:32:09 manuelgarcia Exp $
 /**
  * @file
  * Template file for the galleryformatter default formatter
@@ -14,11 +13,10 @@
  * Available variables:
  *
  * $dimensions - Array containing both slides and thumbs dimensions
- * $gallery_slides - Array containing all slide images, a link to the original and its sanatized title & description ready to print
- * $thumbs - Array containing all thumbnail images ready to print
- * $link_to_full -  BOOLEAN wether or not we are linking slides to original images
+ * $slides - Array containing all slide images, its sanatized title & alt ready to print, its hash id and the full image URL if you need it
+ * $thumbs - Array containing all thumbnail images ready to print and their hash
+ * $settings - The settings for galleryformatter as configured for this field instance.
  */
-
 ?>
 <div class="galleryformatter galleryview galleryformatter-<?php print $settings['style'] ?>">
   <div class="gallery-slides" style="width: <?php print $dimensions['slides']['width']; ?>px; height: <?php print $dimensions['slides']['height']; ?>px;">

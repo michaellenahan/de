@@ -1,5 +1,4 @@
 <?php
-// $Id: galleryformatter.module,v 1.4.2.9 2011/01/30 19:59:58 manuelgarcia Exp $
   include_once DRUPAL_ROOT .'/'. drupal_get_path('module', 'galleryformatter') .'/includes/galleryformatter_imagestyles.inc';
 // module_load_include('inc', 'galleryformatter', 'galleryformatter_imagecache');
 
@@ -11,7 +10,7 @@ function galleryformatter_field_formatter_info() {
   return array(
     'galleryformatter_default' => array(
       'label' => t('jQuery Gallery'),
-      'field types' => array('image'),
+      'field types' => array('image','media'),
       'settings' => array(
         'slide_style' => 'galleryformatter_slide',
         'thumb_style' => 'galleryformatter_thumb',
@@ -160,38 +159,70 @@ function galleryformatter_field_formatter_view($entity_type, $entity, $field, $i
   $settings['style'] = strtolower($settings['style']);
   $num_of_images = count($items);
 
+  // Media field support (only images)
+  if ($field['type'] == 'media') {
+    foreach ($items as $delta => $item) {
+      if ($item['file']->type == 'image') {
+        $items[$delta] = (array) $item; // Compatibility with 7.x-1.0-beta4 and previous media versions
+        $items[$delta]['uri'] = $item['file']->uri;
+        $items[$delta]['filename'] = $item['file']->filename;
+      }
+    }
+    /**
+     * If it's not an image remove it from our items.
+     * We need to do it on another foreach in order not to mess up the $delta on the next run above.
+     */
+    $changed = FALSE;
+    foreach($items as $delta => $item) {
+      if ($item['file']->type !== 'image') {
+        unset($items[$delta]);
+        $changed = TRUE;
+      }
+    }
+    // if we removed from $items, reset the array keys
+    if ($changed) {
+      $items = array_values($items);
+    }
+  }
+
   // prepare the renderable array
   $renderitems = array();
   $renderitems['thumbs'] = array();
+
+  // get the unique entity id for later
+  $ids = entity_extract_ids($entity_type, $entity);
+  $entity_id =  $ids[0];
+
   foreach ($items as $delta => $item){
     /*
      *  prepare slides
      */
     // Grab and sanitize image information
     // $renderitems['slides'][$delta]['description'] = $item['description']; // so far no description in d7 image fields
+    $item['title'] = (!empty($item['title'])) ? $item['title'] : ''; // prevents php notices
     $renderitems['slides'][$delta]['title'] = $item['title'];
+    $item['filename'] = $item['filename'] = '';
 
     // Check if alt attribute is already set, if not use the filename as alt attribute
     $renderitems['slides'][$delta]['alt'] = (isset($item['alt']) && !empty($item['alt'])) ? $item['alt'] : $item['filename'];
     $item['alt'] = $renderitems['slides'][$delta]['alt'];
-    // If the title is empty use description, alt or the node title in that order.
-    if (empty($item['data']['title'])) {
-      if (!empty($item['data']['description'])) {
-        $title = $description;
-      }
-      elseif (!empty($item['data']['alt'])) {
-        $title = $alt;
+
+    // If the title is empty use alt or the node title in that order.
+    if (empty($item['title'])) {
+      if (!empty($item['alt'])) {
+        $item['title'] = $item['alt'];
       }
       else {
-        $title = $entity->title;
+        if(!empty($entity->title)){
+          $item['title'] = $entity->title;
+        }
         // if we have more than one image, add the image count to the title so they are not all the same.
-        $title = ($num_of_images > 1) ? $title . t(' image ') . ($delta + 1) : $title;
+        $item['title'] = ($num_of_images > 1) ? $item['title'] . t(' image ') . ($delta + 1) : $item['title'];
       }
     }
 
-
     // prepare the unique hash id per image
-    $slideset_id = $field['field_name'] . '-' . $entity->nid;
+    $slideset_id = $field['field_name'] . '-' . $entity_id;
     $renderitems['slides'][$delta]['hash_id'] = 'slide-' . $delta . '-' . $slideset_id;
 
     $renderitems['slides'][$delta]['image'] = theme('image_formatter', array(
@@ -205,7 +236,7 @@ function galleryformatter_field_formatter_view($entity_type, $entity, $field, $i
       $vars['gallery_style'] = 'galleryformatter-view-full '; // give the gallery a class for themers to play with
       * */
       $link_attributes = array(
-        'title' => $title,
+        'title' => $item['title'],
       );
 
       // integration with other modules for jQuery modal windows
@@ -218,6 +249,7 @@ function galleryformatter_field_formatter_view($entity_type, $entity, $field, $i
           break;
         case 'shadowbox':
           $link_attributes['rel'] = 'shadowbox['.$slideset_id .']';
+          $element['#attached']['library'][] = array('shadowbox', 'shadowbox');
           break;
         case 'lightbox2':
           $link_attributes['rel'] = 'lightbox['. $slideset_id .']';
@@ -226,6 +258,7 @@ function galleryformatter_field_formatter_view($entity_type, $entity, $field, $i
       $link_url = $settings['link_to_full_style'] ? image_style_url($settings['link_to_full_style'], $item['uri']) : file_create_url($item['uri']);
       // link the slide image and include the span for the icon
       $renderitems['slides'][$delta]['image'] = l('<span class="view-full" title="'. t('View the full image') .'">'. t('View the full image') .'</span>', $link_url, array('attributes' => $link_attributes, 'html' => TRUE,)) . $renderitems['slides'][$delta]['image'];
+      $renderitems['slides'][$delta]['full_image_url'] = $link_url;
     } // END linking to original
 
     /*
@@ -251,13 +284,12 @@ function galleryformatter_field_formatter_view($entity_type, $entity, $field, $i
   drupal_add_css($modulepath . '/theme/galleryformatter.css');
 
   // prepare the variables for our theme function
-  $element = array(
-      '#theme' => 'galleryformatter',
-      '#slides' => $renderitems['slides'],
-      '#thumbs' => $renderitems['thumbs'],
-      '#settings' => $settings,
-      '#dimensions' => $dimensions,
-    );
+  $element['#theme'] ='galleryformatter';
+  $element['#slides'] = $renderitems['slides'];
+  $element['#thumbs'] = $renderitems['thumbs'];
+  $element['#settings'] = $settings;
+  $element['#dimensions'] = $dimensions;
+
   return $element;
 }
 

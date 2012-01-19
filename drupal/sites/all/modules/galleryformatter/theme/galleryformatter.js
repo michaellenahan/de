@@ -1,4 +1,3 @@
-// $Id: galleryformatter.js,v 1.6.2.2 2011/01/30 19:59:58 manuelgarcia Exp $
 
 Drupal.behaviors.galleryformatter = {
   attach: function (context) {
@@ -58,6 +57,8 @@ Drupal.galleryformatter.prepare = function(el) {
         $(this).parent().addClass('active');
         $slides.filter(':visible').fadeOut('slow');
         $hash.fadeIn('slow');
+        // set the slide container's height to allow use of portrait images
+        $slideContainer.css("height",$hash.find('img').height());
         /*
          * @FIXME
          * Need to figure out a way to update the location bar of the browser, for bookmarking etc, without making the scroll jump
@@ -86,6 +87,8 @@ Drupal.galleryformatter.prepare = function(el) {
       if ($slideToShow.length > 0) {
         $slideToShow.show(); //  show that slide
         $thumbsLi.not($(".cloned")).find("a[href="+$locationHash+"]").parent().addClass('active'); // activate that thumbnail
+        // set the slide container's height to allow use of portrait images
+        $slideContainer.css("height", $slideToShow.find('img').height());
       }
       // otherwise the default
       else {
