@@ -20,6 +20,10 @@ a:hover {
 #main-menu {
   display:none;
 }
+/* hide secondary menu */
+#secondary-menu {
+  display:none;
+}
 /* hide breadcrumb */
 #breadcrumb {
   display:none;
